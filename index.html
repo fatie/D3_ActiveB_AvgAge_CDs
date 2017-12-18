@@ -29,6 +29,7 @@
 		<h2 style="font-size:16px; margin-left:15px; font-style: italic;">AVERAGE AGE (WORKDAYS)</h2><br/>
 		<h3 style="font-size:14px; margin-left:15px;">CITYWIDE AVERAGE: <font color="#e21d1d"><span id="citiAvg"></span></font> WORKDAYS</h3>
 		<h3 style="font-size:14px; margin-left:15px;">CD<font color="#e21d1d"><span id="maxCD"></span></font> HAS THE HIGHEST AVERAGE AGE (<font color="#e21d1d"><span id="maxAvg"></span></font>) </h3>
+		<h3 style="font-size:14px; margin-left:15px;">DATA UPDATED ON <font color="#e21d1d"><span id="today"></span></font></h3>
     </div>
     <div class="clr"></div>
 </div><!-- @end #metrics -->    
@@ -143,9 +144,18 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON, data) {
 			return d.AvgAge;
 		}
 	})[0].CD;
+	
+	var today = new Date();
+	var dd = today.getDate();
+	var mm = today.getMonth()+1;
+	var yyyy = today.getFullYear();
+	today = mm + '/' + dd + '/' + yyyy;
+	
+	
 	d3.select("#citiAvg").html(d3.format(".1f")(citiAvg));
 	d3.select("#maxAvg").html(maxAvg);
 	d3.select("#maxCD").html(maxCD);
+	d3.select("#today").html(today);
 	
 	g.selectAll(".floor")
 			.data(topojson.feature(CD_topoJSON, CD_topoJSON.objects.collection).features)
