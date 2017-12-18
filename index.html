@@ -26,7 +26,9 @@
 <div id="metrics">
     <div id="motor">
         <h2 style="margin-top:5px; margin-left:15px; font-size:18px;">B COMPLAINTS BACKLOG</h2>
-		<h2 style="font-size:16px; margin-left:15px; font-style: italic;">AVERAGE AGE (WORKDAYS)</h2>
+		<h2 style="font-size:16px; margin-left:15px; font-style: italic;">AVERAGE AGE (WORKDAYS)</h2><br/>
+		<h3 style="font-size:14px; margin-left:15px;">CITYWIDE AVERAGE: <font color="#e21d1d"><span id="citiAvg"></span></font> WORKDAYS</h3>
+		<h3 style="font-size:14px; margin-left:15px;">CD<font color="#e21d1d"><span id="maxCD"></span></font> HAS THE HIGHEST AVERAGE AGE (<font color="#e21d1d"><span id="maxAvg"></span></font>) </h3>
     </div>
     <div class="clr"></div>
 </div><!-- @end #metrics -->    
@@ -35,19 +37,21 @@
 <div id="tooltip" class="tooltip">
     <h3 class="name"></h3>
 	    <div data-metric="AvgAge" class="line">
-        <!-- <div class="AvgAge symbol"></div> Average Age  -->
-		Average Age:
-        <div class="AvgAge_val val"></div>
-    </div>
+			Average Age:
+			<div class="AvgAge_val val"></div>
+		</div>
+		<div data-metric="ComplaintCount" class="line">
+			# Open Complaints:
+			<div class="ComplaintCount_val val"></div>
+		</div>
 </div>   
    
-<script src="http://d3js.org/d3.v3.min.js"></script>
-<script src="http://d3js.org/queue.v1.min.js"></script>
-<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="https://d3js.org/queue.v1.min.js"></script>
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+<script src="https://d3js.org/d3-format.v1.min.js"></script>
 
 <script>
-
-
 <!-- var width = 1400, -->
     <!-- height = 960, -->
     <!-- center = [width / 2, height / 2], -->
@@ -56,20 +60,16 @@ var width = 1064,
     height = 768,
     center = [width / 2, height / 2],
     defaultFill = "#E1E1E1";
-
 <!-- var color_domain = [12.8, 20.4, 27.1, 31.2, 34.3, 37.4] -->
 <!-- var ext_color_domain = [9.2, 12.8, 20.4, 27.1, 31.2, 34.3, 37.4] -->
 <!-- var legend_labels = ["0.0 - 12.7", "12.8 - 20.3", "20.4 - 27.0", "27.1 - 31.1", "31.2 - 34.2", "34.3 - 37.3", "37.4 - 41.7"] -->
 var color_domain = [10.6, 13.2, 14.6, 15.3, 16.2, 20.6]
 var ext_color_domain = [5.4, 10.6, 13.2, 14.6, 15.3, 16.2, 20.6]
-var legend_labels = ["0.0 - 10.5", "10.6 - 13.1", "13.2 - 14.5", "14.6 - 15.2", "15.3 - 16.1", "16.2 - 20.5", "20.6 - 57.8"]
-
-
+var legend_labels = ["LOW", "", "", "", "", "", "HIGH"]
 var color = d3.scale.threshold()
 	.domain(color_domain)
 	.range(["#D3E5E8", "#B6CED9", "#97B4C7", "#7D9FB8", "#628AA8", "#49769C", "#2E648C"]);
 	
-
 <!-- var color = d3.scale.linear() -->
 	<!-- .domain([0,44]) -->
 	<!-- .range(["#D3E5E8", "#2E648C"]) -->
@@ -79,9 +79,7 @@ var color = d3.scale.threshold()
 	<!-- .domain([6, 44]) -->
 	<!-- .range(d3.range(7).map(function(i) { return "q" + i + "-7"; })); -->
 	
-
 var commuteById = d3.map();
-
 var projection = d3.geo.mercator()
     .scale(75000)
 	.center( [-73.85,40.71] )
@@ -89,11 +87,9 @@ var projection = d3.geo.mercator()
 	
 var path = d3.geo.path()
     .projection(projection);
-
 var zoom = d3.behavior.zoom()
     .scaleExtent([1, 8])
     .on("zoom", move);
-
 var svg = d3.select("body #main-wrapper").append("svg")
     .attr("width", width)
     .attr("height", height)
@@ -102,12 +98,10 @@ var svg = d3.select("body #main-wrapper").append("svg")
 		
 svg.on("wheel.zoom", null);
 svg.on("mousewheel.zoom", null);
-
 svg.append("rect")
     .attr("class", "overlay")
     .attr("width", width)
     .attr("height", height);
-
 svg.append("svg:image")
     .attr("xlink:href", "images/progress-anim.gif")
     .attr("id", "progress-image")
@@ -117,34 +111,48 @@ svg.append("svg:image")
     .attr("y", height / 2);
     
 var g = svg.append("g");
-
     
 var tooltip = d3.select("#tooltip")
  .attr("class", "tooltip")
  .style("opacity", 0);
-
-
 var CURR_SELECT = ["AvgAge"];
+var COMP_CNT = ["ComplaintCount"];
 
 //Load layer and data
 queue()
     .defer(d3.json, "data/CD_topoJSON.json")
 	.defer(d3.json, "data/CD_toJoin_topoJSON.json")
-	.defer(d3.csv, "data/ActiveB_AvgAgeCD.csv", typeAndSet)
+	.defer(d3.csv, "data/ActiveB_AvgAgeCD.csv")
     .await(ready);
+function ready(error, CD_topoJSON, CD_toJoin_topoJSON, data) {
 
-
-function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
-
-
+	data.forEach(function(d) {
+		d.AvgAge = +d.AvgAge;
+		d.ComplaintCount = +d.ComplaintCount;
+		d.CD = +d.CD;
+		commuteById.set(d.FIPS, d);
+	});
+	var citiAvg = d3.mean(data, function(d) {
+		return d.AvgAge;
+	});
+	var maxAvg = d3.max(data, function(d) { 
+		return d.AvgAge; 
+	});
+	var maxCD = data.filter (function(d) {
+		if (d.AvgAge == maxAvg) {
+			return d.AvgAge;
+		}
+	})[0].CD;
+	d3.select("#citiAvg").html(d3.format(".1f")(citiAvg));
+	d3.select("#maxAvg").html(maxAvg);
+	d3.select("#maxCD").html(maxCD);
+	
 	g.selectAll(".floor")
 			.data(topojson.feature(CD_topoJSON, CD_topoJSON.objects.collection).features)
-
 		.enter()
 			.append("path")
 			.attr("class","floor")
 			.attr("d", path);
-
     g.append("g")
         .attr("class", "collection")
         .selectAll("path")
@@ -169,6 +177,7 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
                }
 				tooltip.select(".name").text(commuteById.get(d.id)['name']);
 				tooltip.select(".AvgAge_val.val").text(commuteById.get(d.id)["AvgAge"])
+				tooltip.select(".ComplaintCount_val.val").text(commuteById.get(d.id)["ComplaintCount"])
  
              })
           .on("mouseout", function() {
@@ -178,7 +187,7 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
               });
     
     updateClasses();
-        
+/*        
 	// Zoom buttons
     svg.selectAll(".button")
         .data(['zoom_in', 'zoom_out'])
@@ -207,12 +216,10 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
         .attr({x1: 25, y1: 75, x2: 35, y2: 75 })
         .attr("stroke", "#fff")
         .attr("stroke-width", "2px");
-
-
     svg.selectAll(".button")
       .on("click", function() {
           d3.event.preventDefault();
-          
+         
           var scale = zoom.scale(),
               extent = zoom.scaleExtent(),
               translate = zoom.translate(),
@@ -225,7 +232,6 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
                 target_scale = clamped_target_scale;
                 factor = target_scale / scale;
             }
-
             // Center each vector, stretch, then put back
             x = (x - center[0]) * factor + center[0];
             y = (y - center[1]) * factor + center[1];
@@ -241,16 +247,16 @@ function ready(error, CD_topoJSON, CD_toJoin_topoJSON) {
                 };
             });
       });
-      
+*/      
       svg.select("#progress-image").remove();
 }
     
 // Add attribute data and convert to number (default is string) 
-function typeAndSet(d) {
-    d.AvgAge = +d.AvgAge;
-    commuteById.set(d.FIPS, d);
-}
-
+<!-- function typeAndSet(d) { -->
+    <!-- d.AvgAge = +d.AvgAge; -->
+	<!-- d.ComplaintCount = +d.ComplaintCount -->
+    <!-- commuteById.set(d.FIPS, d); -->
+<!-- } -->
 
 function updateClasses() {
 	svg.selectAll(".collection path")
@@ -258,11 +264,9 @@ function updateClasses() {
 		//.attr("class", function(d) {return quantize(commuteById.get(d.id)[CURR_SELECT[0]]); });
 		.attr("fill", function(d) {return color(commuteById.get(d.id)[CURR_SELECT[0]]); });
 }
-
 function colorByGreatest(FIPS) {
     
     var countyObject = commuteById.get(FIPS);
-
     if (typeof countyObject !== "undefined") {
         var values = [];
         for (var i = 0; i < CURR_SELECT.length; i++) {
@@ -279,13 +283,10 @@ function colorByGreatest(FIPS) {
     }
     
 }
-
-
 function zoomIn() {
     zoom.scale(zoom.scale()*2);
     move();
 }
-
 function move() {
   var t = d3.event.translate,
       s = d3.event.scale;
@@ -294,10 +295,8 @@ function move() {
   zoom.translate(t);
   g.style("stroke-width", 1 / s).attr("transform", "translate(" + t + ")scale(" + s + ")");
 }
-
 function clicked(d) {
   var x, y, k;
-
   if (d && centered !== d) {
     var centroid = path.centroid(d);
     x = centroid[0];
@@ -310,18 +309,13 @@ function clicked(d) {
     k = 1;
     centered = null;
   }
-
   g.selectAll("path")
       .classed("active", centered && function(d) { return d === centered; });
-
   g.transition()
       .duration(750)
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")scale(" + k + ")translate(" + -x + "," + -y + ")")
       .style("stroke-width", 1.5 / k + "px");
 }
-
-
-
 function removeFromArray(arr) {
     var what, a = arguments, L = a.length, ax;
     while (L > 1 && arr.length) {
@@ -332,7 +326,6 @@ function removeFromArray(arr) {
     }
     return arr;
 }
-
 var legend = svg.selectAll("g.legend")
 	.data(ext_color_domain)
 	.enter().append("g")
@@ -341,10 +334,9 @@ var legend = svg.selectAll("g.legend")
 	.attr("class", "legend");
 	
 var ls_w = 25, ls_h = 25;
-
 legend.append("rect")
-	.attr("x", 50)
-	.attr("y", function(d, i){return height - (i*ls_h) - 2*ls_h;})
+	.attr("x", 10)
+	.attr("y", function(d, i){return height - (i*ls_h) - (-1*ls_h);})
 	<!-- .attr('transform', 'translate(10, -720)') /* XY position of legend*/ -->
 	.attr('transform', 'translate(10, -529)') /* XY position of legend*/
 	.attr("width", ls_w)
@@ -352,13 +344,10 @@ legend.append("rect")
 	.style("fill", function(d, i){return color(d);})
 	.style("opacity", 0.8);
 legend.append("text")
-	.attr("x", 80)
-	.attr("y", function(d, i){return height - (i*ls_h) - ls_h - 5;})
+	.attr("x", 40)
+	.attr("y", function(d, i){return height - (i*ls_h) - ls_h - (-69);})
 	<!-- .attr('transform', 'translate(10, -720)') /* XY position of legend*/ -->
 	.attr('transform', 'translate(10, -529)') /* XY position of legend*/
 	.text(function(d, i){return legend_labels[i];});
-
 d3.select(self.frameElement).style("height", height + "px");
-
-
 </script>
