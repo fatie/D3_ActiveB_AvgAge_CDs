@@ -93,7 +93,7 @@ var COMP_CNT = ["ComplaintCount"];
 
 //Load layer and data
 queue()
-    .defer(d3.json, "data/CD_topoJSON.json")
+   // .defer(d3.json, "data/CD_topoJSON.json")
 	.defer(d3.json, "data/CD_toJoin_topoJSON.json")
 	.defer(d3.csv, "data/ActiveB_AvgAgeCD.csv")
     .await(ready);
